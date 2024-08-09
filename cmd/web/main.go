@@ -32,7 +32,7 @@ func main() {
 
 	app := &application{
 		logger:   logger,
-		snippets: &models.SnippetModel{DB: db},
+		snippets: models.New(db),
 	}
 
 	mux := http.NewServeMux()

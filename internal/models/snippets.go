@@ -18,11 +18,26 @@ type SnippetModel struct {
 	DB *sql.DB
 }
 
-func (m *SnippetModel) Insert(title string, content string, expires int) (int, error) {
-	stmt := `INSERT INTO snippets (title, content, created, expires)
-	VALUES(?, ?, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))`
+var (
+	insertStmt *sql.Stmt
+	updateStmt *sql.Stmt
+)
 
-	result, err := m.DB.Exec(stmt, title, content, expires)
+func New(db *sql.DB) *SnippetModel {
+	m := SnippetModel{
+		DB: db,
+	}
+
+	insertStmt, _ = m.DB.Prepare(`INSERT INTO snippets (title, content, created, expires)
+						VALUES(?, ?, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))`)
+
+	updateStmt, _ = m.DB.Prepare(`SELECT id, title, content, created, expires FROM snippets
+    					WHERE expires > UTC_TIMESTAMP() AND id = ?`)
+	return &m
+}
+
+func (m *SnippetModel) Insert(title string, content string, expires int) (int, error) {
+	result, err := insertStmt.Exec(title, content, expires)
 	if err != nil {
 		return 0, err
 	}
@@ -35,10 +50,7 @@ func (m *SnippetModel) Insert(title string, content string, expires int) (int, e
 }
 
 func (m *SnippetModel) Get(id int) (Snippet, error) {
-	stmt := `SELECT id, title, content, created, expires FROM snippets
-    WHERE expires > UTC_TIMESTAMP() AND id = ?`
-
-	row := m.DB.QueryRow(stmt, id)
+	row := updateStmt.QueryRow(id)
 
 	var s Snippet
 
